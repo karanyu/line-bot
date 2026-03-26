@@ -24,6 +24,12 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 ADMIN_LINE_USER_ID = os.environ.get("ADMIN_LINE_USER_ID")  # User ID ของแอดมิน
 
 # ==========================================
+# เวอร์ชันของ Bot (อัปเดตทุกครั้งที่มีการแก้ไข)
+# ==========================================
+BOT_VERSION = "Clinic Bot Version 7"
+BOT_VERSION_DATE = "2026-03-26"
+
+# ==========================================
 # ตั้งค่าแอดมิน
 # ==========================================
 ADMIN_NAME = "กาลัญญู"           # Display name ของแอดมิน
@@ -255,7 +261,9 @@ def send_push_message(user_id, text):
 # ==========================================
 # System Prompt
 # ==========================================
-SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของ คลินิกเวชกรรมนายแพทย์วัฒนา มีหน้าที่ดูแลและให้ข้อมูลแก่คนไข้อย่างสุภาพ อบอุ่น และเป็นมิตร
+SYSTEM_PROMPT = f"""คุณคือผู้ช่วย AI ของ คลินิกเวชกรรมนายแพทย์วัฒนา มีหน้าที่ดูแลและให้ข้อมูลแก่คนไข้อย่างสุภาพ อบอุ่น และเป็นมิตร
+ระบบนี้คือ {BOT_VERSION} (อัปเดตวันที่ {BOT_VERSION_DATE})
+หากมีใครถามว่าคุณคือเวอร์ชันอะไร ให้ตอบว่า "{BOT_VERSION}" และวันที่อัปเดต "{BOT_VERSION_DATE}" ค่ะ
 
 === ข้อมูลคลินิก ===
 - เว็บไซต์: https://watthanaclinic.com
@@ -444,6 +452,23 @@ def handle_admin_command(event, user_id, user_message):
             )
         return True
 
+    # --- คำสั่ง /version ---
+    if user_message == "/version":
+        reply_text = (
+            f"🤖 {BOT_VERSION}\n"
+            f"📅 อัปเดตล่าสุด: {BOT_VERSION_DATE}\n\n"
+            f"✅ ระบบทำงานปกติค่ะ"
+        )
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
+            )
+        return True
+
     # --- คำสั่ง /คำสั่ง (ดูรายการคำสั่งทั้งหมด) ---
     if user_message == "/คำสั่ง":
         help_text = (
@@ -452,7 +477,8 @@ def handle_admin_command(event, user_id, user_message):
             "📋 /ดูข้อมูล — ดูข้อมูลที่บันทึกทั้งหมด\n"
             "🗑️ /ลบ [หมายเลข] — ลบข้อมูลรายการที่ระบุ\n"
             "🗑️ /ลบทั้งหมด — ลบข้อมูลอัปเดตทั้งหมด\n"
-            "🔄 /resumebot — ให้ Bot กลับมาตอบอัตโนมัติ\n\n"
+            "🔄 /resumebot — ให้ Bot กลับมาตอบอัตโนมัติ\n"
+            "🔢 /version — ตรวจสอบเวอร์ชัน Bot\n\n"
             "⚠️ ทุกการเปลี่ยนแปลงต้องยืนยัน PIN ก่อนค่ะ"
         )
         with ApiClient(configuration) as api_client:
