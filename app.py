@@ -26,7 +26,7 @@ ADMIN_LINE_USER_ID = os.environ.get("ADMIN_LINE_USER_ID")  # User ID ของ�
 # ==========================================
 # เวอร์ชันของ Bot (อัปเดตทุกครั้งที่มีการแก้ไข)
 # ==========================================
-BOT_VERSION = "Clinic Bot Version 7"
+BOT_VERSION = "Clinic Bot Version 8"
 BOT_VERSION_DATE = "2026-03-26"
 
 # ==========================================
@@ -37,6 +37,12 @@ ADMIN_PIN = "20456"               # รหัสยืนยันก่อน�
 
 # เก็บสถานะรอรหัส PIN ชั่วคราว (user_id: pending_command)
 pending_pin_verification = {}
+
+# เก็บ user_id ที่รอ PIN สำหรับ Admin Mode Login
+pending_admin_login = set()
+
+# เก็บ user_id ที่ผ่านการยืนยัน PIN แล้ว (Admin Session)
+admin_sessions = set()
 
 # ==========================================
 # คำสั่งพิเศษ
@@ -519,10 +525,11 @@ def handle_message(event):
     save_message(user_id, "user", user_message)
 
     # ==========================================
-    # คำสั่ง /myid — ดู LINE User ID ของตัวเอง
+    # ระบบ Admin Mode Login — ขอเข้าสู่โหมดแอดมิน
     # ==========================================
-    if user_message == "/myid":
-        reply_text = f"🆔 LINE User ID ของคุณคือ:\n\n{user_id}\n\nนำไปใส่ใน Render Environment Variable ชื่อ ADMIN_LINE_USER_ID ค่ะ"
+    if user_message.lower() == "admin mode":
+        pending_admin_login.add(user_id)
+        reply_text = "🔐 กรุณาใส่รหัส PIN เพื่อยืนยันตัวตนแอดมินค่ะ"
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             line_bot_api.reply_message_with_http_info(
@@ -534,16 +541,36 @@ def handle_message(event):
         return
 
     # ==========================================
-    # ตรวจสอบคำสั่งแอดมิน (เฉพาะ กาลัญญู เท่านั้น)
+    # รับ PIN สำหรับ Admin Mode Login
     # ==========================================
-    if user_id == ADMIN_LINE_USER_ID:
+    if user_id in pending_admin_login:
+        pending_admin_login.discard(user_id)
+        if user_message == ADMIN_PIN:
+            admin_sessions.add(user_id)
+            reply_text = f"✅ สวัสดีครับ Admin {ADMIN_NAME}! 👋\n\nคุณเข้าสู่โหมดแอดมินเรียบร้อยแล้วค่ะ\n\nพิมพ์ /คำสั่ง เพื่อดูคำสั่งทั้งหมดที่ใช้ได้ค่ะ"
+        else:
+            reply_text = "❌ รหัส PIN ไม่ถูกต้องค่ะ กรุณาลองใหม่อีกครั้งค่ะ"
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
+            )
+        return
+
+    # ==========================================
+    # ตรวจสอบคำสั่งแอดมิน (เฉพาะผู้ที่ Login Admin Mode สำเร็จแล้ว)
+    # ==========================================
+    if user_id in admin_sessions:
         if handle_admin_command(event, user_id, user_message):
             return  # จัดการคำสั่งแอดมินเรียบร้อยแล้ว ไม่ต้องทำต่อ
 
     # ==========================================
     # ตรวจสอบคำสั่งแอดมิน: /resumebot
     # ==========================================
-    if user_message == RESUME_BOT_COMMAND and user_id == ADMIN_LINE_USER_ID:
+    if user_message == RESUME_BOT_COMMAND and user_id in admin_sessions:
         # แอดมินไม่ควรใช้คำสั่งนี้กับตัวเอง (ข้ามไป)
         return
 
@@ -551,7 +578,7 @@ def handle_message(event):
     # ตรวจสอบว่าแอดมินส่งคำสั่ง /resumebot ให้คนไข้
     # รูปแบบ: /resumebot (ส่งในแชทของคนไข้ผ่าน Line OA)
     # ==========================================
-    if user_message.startswith(RESUME_BOT_COMMAND):
+    if user_message.startswith(RESUME_BOT_COMMAND) and user_id in admin_sessions:
         set_chat_mode(user_id, "bot")
         reply_text = "✅ ระบบ AI กลับมาดูแลคุณแล้วนะคะ หากต้องการคุยกับเจ้าหน้าที่อีกครั้ง พิมพ์ 'คุยกับเจ้าหน้าที่' ได้เลยค่ะ 😊"
         with ApiClient(configuration) as api_client:
