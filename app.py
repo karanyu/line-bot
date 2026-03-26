@@ -519,6 +519,21 @@ def handle_message(event):
     save_message(user_id, "user", user_message)
 
     # ==========================================
+    # คำสั่ง /myid — ดู LINE User ID ของตัวเอง
+    # ==========================================
+    if user_message == "/myid":
+        reply_text = f"🆔 LINE User ID ของคุณคือ:\n\n{user_id}\n\nนำไปใส่ใน Render Environment Variable ชื่อ ADMIN_LINE_USER_ID ค่ะ"
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
+            )
+        return
+
+    # ==========================================
     # ตรวจสอบคำสั่งแอดมิน (เฉพาะ กาลัญญู เท่านั้น)
     # ==========================================
     if user_id == ADMIN_LINE_USER_ID:
